@@ -18,29 +18,42 @@ Dir.mkdir(CLONE_PATH) unless Dir.exist?(CLONE_PATH)
 
 GITHUB_API_URL = "https://api.github.com/user/repos"
 
-def fetch_repositories
-  uri = URI.parse(GITHUB_API_URL)
-  request = Net::HTTP::Get.new(uri)
-  request.basic_auth(GITHUB_USERNAME, GITHUB_TOKEN)
+def fetch_repositories(api_url)
+  repositories = []
+  loop do
+    uri = URI.parse(api_url)
+    request = Net::HTTP::Get.new(uri)
+    request.basic_auth(GITHUB_USERNAME, GITHUB_TOKEN)
 
-  response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-    http.request(request)
+    response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+      http.request(request)
+    end
+
+    unless response.code.to_i == 200
+      puts "Error fetching repositories: #{response.code} - #{response.message}"
+      puts response.body
+      exit(1)
+    end
+
+    repositories += JSON.parse(response.body)
+
+    links = response['Link']
+    if links&.include?('rel="next"')
+      next_link = links.match(/<([^>]+)>; rel="next"/)[1]
+      api_url = next_link
+    else
+      break
+    end
   end
 
-  unless response.code.to_i == 200
-    puts "Error fetching repositories: #{response.code} - #{response.message}"
-    puts response.body
-    exit(1)
-  end
-
-  JSON.parse(response.body)
+  repositories
 end
 
 def clone_repository(repo_url, clone_path)
   system("git clone #{repo_url} #{clone_path}")
 end
 
-repositories = fetch_repositories
+repositories = fetch_repositories(GITHUB_API_URL)
 
 Dir.chdir(CLONE_PATH) do
   repositories.each do |repo|
