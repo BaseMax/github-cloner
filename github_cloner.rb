@@ -46,7 +46,7 @@ Dir.chdir(CLONE_PATH) do
   repositories.each do |repo|
     repo_name = repo['name']
     repo_url = repo['clone_url']
-    repo_url = repo['ssh_url'] if repo['private']
+    # repo_url = repo['ssh_url'] if repo['private']
 
     if Dir.exist?(repo_name)
       puts "Skipping #{repo_name} (already cloned)..."
